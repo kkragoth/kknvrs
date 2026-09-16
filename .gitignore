@@ -1,0 +1,6 @@
+dist/
+node_modules/
+# personal config (may reference local URLs); commit only kknvrs.example.json
+kknvrs.json
+# personal agent files next to ./kknvrs.json (examples live in ~/.config/kknvrs/agents)
+agents/

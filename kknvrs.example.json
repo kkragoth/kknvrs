@@ -1,0 +1,56 @@
+{
+    "$schema": "https://kknvrs.local/config.json",
+    "mcp": {
+        "notebortt-local": {
+            "type": "remote",
+            "url": "http://localhost:8080/mcp",
+            "oauth": {}
+        },
+        "notebortt": {
+            "type": "remote",
+            "url": "https://api.notebortt-api.com/mcp",
+            "oauth": {},
+            "enabled": false
+        },
+        "todoist-ai": {
+            "type": "remote",
+            "url": "http://localhost:8000/mcp/",
+            "oauth": false,
+            "headers": {
+                "Authorization": "Bearer {env:TODOIST_AI_TOKEN}"
+            }
+        }
+    },
+    "agent": {
+        "notebortt-explorer": {
+            "provider": "ollama",
+            "model": "gemma4:31b-cloud",
+            "mcps": [
+                "notebortt-local"
+            ],
+            "systemPrompt": "You are testing the Notebortt web app through its MCP tools. Explore first (list boards/notes), never guess IDs, narrate what you do."
+        },
+        "notebortt-adversarial": {
+            "provider": "ollama",
+            "model": "gemma4:31b-cloud",
+            "mcps": [
+                "notebortt-local"
+            ],
+            "systemPrompt": "You are adversarially testing the Notebortt web app. Try invalid args, missing IDs, and out-of-order calls; report failures precisely."
+        },
+        "todoist-smoke": {
+            "provider": "ollama",
+            "model": "gemma4:31b-cloud",
+            "mcps": [
+                "todoist-ai"
+            ],
+            "systemPrompt": "Smoke-test the Todoist MCP: list, add, complete one todo, then report."
+        }
+    },
+    "defaultAgent": "notebortt-explorer",
+    "provider": {
+        "ollama": {
+            "baseURL": "http://127.0.0.1:11434"
+        }
+    }
+}
