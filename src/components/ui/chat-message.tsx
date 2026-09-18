@@ -20,9 +20,6 @@ export interface ChatMessageProps {
 
 const formatTime = (date: Date): string => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-const wrapPlainChildren = (node: ReactNode, selectable?: boolean): ReactNode =>
-    typeof node === "string" || typeof node === "number" ? <text selectable={selectable}>{node}</text> : node;
-
 export const ChatMessage = ({
     sender,
     name,
@@ -64,21 +61,36 @@ export const ChatMessage = ({
     const childrenText = typeof children === "string" ? children : "";
     const firstLine = childrenText.split("\n")[0] ?? "";
 
+    // Explicit selection colors: without selectionBg/Fg the drag highlight
+    // is invisible, so mouse selection looks broken.
+    const selection = {
+        selectionBg: theme.colors.selection,
+        selectionFg: theme.colors.selectionForeground,
+    };
+
+    const wrapPlainChildren = (node: ReactNode): ReactNode =>
+        typeof node === "string" || typeof node === "number" ? (
+            <text selectable={selectable} {...selection}>
+                {node}
+            </text>
+        ) : (
+            node
+        );
+
     const renderContent = () => {
         if (streaming) {
-            return <box>{children ? wrapPlainChildren(children, selectable) : <text fg={color}>{dots}</text>}</box>;
+            return <box>{children ? wrapPlainChildren(children) : <text fg={color}>{dots}</text>}</box>;
         }
         if (collapsedProp) {
             return (
                 <box>
-                    <text
-                        fg="#666"
-                        selectable={selectable}
-                    >{`${firstLine.slice(0, 60)}${firstLine.length > 60 || childrenText.includes("\n") ? "..." : ""}`}</text>
+                    <text fg="#666" selectable={selectable} {...selection}>{`${firstLine.slice(0, 60)}${
+                        firstLine.length > 60 || childrenText.includes("\n") ? "..." : ""
+                    }`}</text>
                 </box>
             );
         }
-        return <box>{wrapPlainChildren(children, selectable)}</box>;
+        return <box>{wrapPlainChildren(children)}</box>;
     };
 
     return (

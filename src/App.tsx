@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import type { InputRenderable, ScrollBoxRenderable } from "@opentui/core";
+import type { ScrollBoxRenderable, TextareaRenderable } from "@opentui/core";
 import { useKeyboard, useRenderer, useSelectionHandler, useTerminalDimensions } from "@opentui/react";
 import { CommandPopup } from "@/components/command-popup.js";
 import { HeaderBar } from "@/components/header-bar.js";
@@ -20,7 +20,7 @@ export function App() {
     const renderer = useRenderer();
     const { width, height } = useTerminalDimensions();
 
-    const inputRef = useRef<InputRenderable>(null);
+    const inputRef = useRef<TextareaRenderable>(null);
     const scrollRef = useRef<ScrollBoxRenderable>(null);
     // Down position of a potential click; cleared on drag so drag-to-copy
     // never steals focus back to the input.
@@ -45,7 +45,7 @@ export function App() {
         const chat = useChatStore.getState();
         const composer = useComposerStore.getState();
         // The sessions palette owns the keyboard while open (it handles
-        // ↑↓/enter/esc itself) so global shortcuts don't double-fire.
+        // up/down/enter/esc itself) so global shortcuts don't double-fire.
         if (useSessionUiStore.getState().paletteOpen) {
             return;
         }
@@ -55,7 +55,7 @@ export function App() {
         if (key.name === "escape") {
             if (showPopup) {
                 composer.clear();
-                if (inputRef.current) inputRef.current.value = "";
+                inputRef.current?.clear();
                 return;
             }
             if (isTurnRunning()) {
@@ -65,8 +65,10 @@ export function App() {
             return;
         }
         if (key.name === "tab" && showPopup && activeMatch) {
-            if (inputRef.current) inputRef.current.value = `${activeMatch.name} `;
+            inputRef.current?.setText(`${activeMatch.name} `);
             composer.acceptCompletion(activeMatch.name);
+            key.preventDefault();
+            key.stopPropagation();
             return;
         }
         if (key.name === "tab") {
@@ -77,6 +79,20 @@ export function App() {
         }
         if ((key.name === "up" || key.name === "down") && showPopup) {
             composer.cycleCompletion(key.name === "up" ? -1 : 1, matches.length);
+            key.preventDefault();
+            key.stopPropagation();
+            return;
+        }
+        if (key.name === "up" || key.name === "down") {
+            // Multiline stays navigable; single-line cycles sent history.
+            const plain = inputRef.current?.plainText ?? "";
+            if (plain.includes("\n")) return;
+            const next = composer.cycleHistory(key.name === "up" ? -1 : 1);
+            if (next !== null) {
+                inputRef.current?.setText(next);
+                key.preventDefault();
+                key.stopPropagation();
+            }
             return;
         }
         if ((key.ctrl ?? false) && key.name === "t") {

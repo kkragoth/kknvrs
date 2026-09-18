@@ -25,11 +25,15 @@ export function agentSystemPrompt(agent: ResolvedAgent, today: Date = new Date()
     return (
         `${base}\n` +
         `Rules: for questions about the app, call a list/read tool first; never answer from memory. ` +
-        `Use IDs from listed results, never guess one. When a call fails, report the exact error. ` +
+        `Use IDs from listed results, never guess one. When a call fails, report the exact error and follow its hint instead of retrying blind. ` +
+        `Board rules (mandatory): every board-scoped tool needs a boardId or session context — never call a write tool with a guessed boardId. ` +
+        `If the user named a board, call <server>__board_list, match by name (case-insensitive), then <server>__board_set_context and pass that boardId explicitly. ` +
+        `Otherwise call <server>__board_list first: if exactly one board, pin it with board_set_context and continue; ` +
+        `if zero/multiple boards or no session context, stop and ask the user which board to use (or whether to create one) — do not create canvas/note content on an ambiguous board. ` +
         `Tool names are namespaced as <server>__<tool> (e.g. notebortt-local__board_list): ` +
         `strip the prefix to get the real tool name from your instructions. ` +
-        `Servers also publish curated MCP prompts (canned expert workflows): discover them with ` +
-        `mcp_list_prompts, fetch one with mcp_get_prompt, then follow its instructions. ` +
+        `Servers also publish curated MCP prompts (canned expert workflows): for canvas/BMC/lean/review/board tasks call ` +
+        `mcp_list_prompts first, then mcp_get_prompt, then follow its board step (it tells you to board_list and ask the user when needed). ` +
         `Today is ${dateStr} (${day}).`
     );
 }
@@ -68,8 +72,8 @@ const META_TOOLS: OllamaToolDef[] = [
         function: {
             name: META_LIST_PROMPTS,
             description:
-                "List curated MCP prompt workflows published by connected servers (e.g. create-bmc, review). " +
-                "Call this when the user asks for something a canned expert workflow might cover.",
+                "List curated MCP prompt workflows published by connected servers (e.g. create-bmc, create-lean, review, set-board). " +
+                "Call this FIRST when the user asks for a canvas/BMC/lean/review/board task, then fetch the match with mcp_get_prompt.",
             parameters: {
                 type: "object",
                 properties: {
@@ -175,6 +179,11 @@ export async function* runAgentTurn(params: AgentTurnParams): AsyncGenerator<Cha
                 } else if (evt.type === "tool_calls") {
                     toolCalls = evt.calls;
                 } else if (evt.type === "done") {
+                    const promptTokens = Math.max(0, Math.floor(evt.promptTokens ?? 0));
+                    const completionTokens = Math.max(0, Math.floor(evt.completionTokens ?? 0));
+                    if (promptTokens > 0 || completionTokens > 0) {
+                        yield { type: "usage", usage: { promptTokens, completionTokens } };
+                    }
                     break;
                 }
             }

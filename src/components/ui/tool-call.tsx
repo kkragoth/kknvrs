@@ -101,11 +101,18 @@ export const ToolCall = ({
         nameColor = theme.colors.mutedForeground;
     }
 
+    const selection = {
+        selectionBg: theme.colors.selection,
+        selectionFg: theme.colors.selectionForeground,
+    };
+
     return (
         <box flexDirection="column">
             <box flexDirection="row" gap={1}>
                 {statusIcon()}
-                <text fg={nameColor}>{status !== "pending" ? <b>{name}</b> : name}</text>
+                <text fg={nameColor} selectable {...selection}>
+                    {status !== "pending" ? <b>{name}</b> : name}
+                </text>
                 {durationText && <text fg={theme.colors.mutedForeground}>{`(${durationText})`}</text>}
                 {collapsible && <text fg="#666">{collapsed ? "▶" : "▼"}</text>}
             </box>
@@ -118,7 +125,9 @@ export const ToolCall = ({
                             {...Object.entries(args).map(([k, v]) => (
                                 <box key={k} flexDirection="row" gap={1}>
                                     <text fg={theme.colors.accent}>{`${k}:`}</text>
-                                    <text fg="#666">{oneLine(JSON.stringify(v), 80)}</text>
+                                    <text fg="#666" selectable {...selection}>
+                                        {oneLine(JSON.stringify(v), 80)}
+                                    </text>
                                 </box>
                             ))}
                         </box>
@@ -129,7 +138,7 @@ export const ToolCall = ({
                             {splitOutputLines(
                                 typeof result === "string" ? result : JSON.stringify(result, null, 2),
                             ).map((line, i) => (
-                                <text key={i} fg="#666">
+                                <text key={i} fg="#666" selectable {...selection}>
                                     {line}
                                 </text>
                             ))}

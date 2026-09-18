@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { MouseButton, type MouseEvent } from "@opentui/core";
 import { useTheme } from "@/hooks/use-theme";
+import type { TokenUsage } from "@/types.js";
+import { formatUsageShort, hasUsage } from "@/lib/tokens.js";
 
 export interface ThinkingBlockProps {
     content: string;
@@ -10,7 +12,8 @@ export interface ThinkingBlockProps {
      * flips exactly one block. Defaults to collapsed when finished. */
     collapsed?: boolean;
     label?: string;
-    tokenCount?: number;
+    /** Per-turn model usage; header shows compact "↑1.2k ↓800". */
+    tokens?: TokenUsage;
     duration?: number;
     /** Click handler for the header line. When set, a left-click (press and
      * release on the same cell, so drag-to-copy is unaffected) calls it. */
@@ -22,7 +25,7 @@ export const ThinkingBlock = ({
     streaming = false,
     collapsed: collapsedProp,
     label = "Reasoning",
-    tokenCount,
+    tokens,
     duration,
     onToggle,
 }: ThinkingBlockProps) => {
@@ -40,7 +43,7 @@ export const ThinkingBlock = ({
         return () => clearInterval(id);
     }, [streaming]);
 
-    const tokenStr = tokenCount === undefined ? null : `${tokenCount.toLocaleString()} tokens`;
+    const tokenStr = tokens && hasUsage(tokens) ? formatUsageShort(tokens) : null;
     const durationStr = duration === undefined ? null : `${(duration / 1000).toFixed(1)}s`;
 
     const headerParts = [streaming ? "Thinking..." : label, tokenStr, durationStr].filter(Boolean);
@@ -80,7 +83,13 @@ export const ThinkingBlock = ({
             {collapsed || (
                 <box flexDirection="column">
                     {lines.map((line, i) => (
-                        <text key={i} fg={theme.colors.mutedForeground}>
+                        <text
+                            key={i}
+                            fg={theme.colors.mutedForeground}
+                            selectable
+                            selectionBg={theme.colors.selection}
+                            selectionFg={theme.colors.selectionForeground}
+                        >
                             {line}
                         </text>
                     ))}

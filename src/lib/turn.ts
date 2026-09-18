@@ -1,5 +1,6 @@
-import type { FeedItem, Turn } from "@/types.js";
+import type { FeedItem, TokenUsage, Turn } from "@/types.js";
 import { TurnPhase } from "@/types.js";
+import { addUsage, emptyUsage } from "@/lib/tokens.js";
 
 /** Max options the server attaches to an ask_user event (mirrors backend MAX_ASK_OPTIONS). */
 export const MAX_CLARIFICATION_OPTIONS = 4;
@@ -48,6 +49,7 @@ export function createTurn(userText: string): Turn {
         answer: "",
         phase: TurnPhase.Working,
         tools: [],
+        tokens: emptyUsage(),
         expanded: false,
         startedAt: Date.now(),
     };
@@ -76,6 +78,10 @@ export function cancelTurn(turn: Turn): Turn {
 
 export function appendAnswer(turn: Turn, chunk: string): Turn {
     return { ...turn, answer: turn.answer + chunk };
+}
+
+export function addTurnUsage(turn: Turn, usage: TokenUsage): Turn {
+    return { ...turn, tokens: addUsage(turn.tokens, usage) };
 }
 
 export function setClarification(turn: Turn, question: string, options: string[]): Turn {

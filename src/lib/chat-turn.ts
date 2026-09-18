@@ -3,6 +3,7 @@ import { ConnectionStatus } from "@/lib/connection.js";
 import { resolveAgent } from "@/lib/kknvrs-config.js";
 import { connectAgentServers } from "@/lib/mcp-manager.js";
 import {
+    addTurnUsage,
     appendAnswer,
     cancelTurn,
     completeTurnIfWorking,
@@ -75,6 +76,8 @@ export async function startTurn(userText: string): Promise<void> {
                 const step = { tool: evt.tool, args: evt.args ?? {}, startedAt: Date.now() };
                 chat.updateTurn(id, (t) => ({ ...t, tools: [...t.tools, step] }));
                 chat.setStatus(`Running ${evt.tool}…`);
+            } else if (evt.type === "usage") {
+                chat.updateTurn(id, (t) => addTurnUsage(t, evt.usage));
             } else if (evt.type === "tool_result") {
                 const at = Date.now();
                 chat.updateTurn(id, (t) => {

@@ -11,9 +11,17 @@ export type ChatEvent =
     | { type: "token"; content: string }
     | { type: "tool_call"; tool: string; args: Record<string, unknown> }
     | { type: "tool_result"; tool: string; output: string }
+    | { type: "usage"; usage: TokenUsage }
     | { type: "ask_user"; question: string; options?: string[] }
     | { type: "done" }
     | { type: "error"; message: string };
+
+/** Token accounting per turn. Ollama reports input (prompt_eval_count)
+ * and output (eval_count); multi-step ReAct turns sum every step. */
+export interface TokenUsage {
+    promptTokens: number;
+    completionTokens: number;
+}
 
 export interface ToolStep {
     tool: string;
@@ -36,6 +44,8 @@ export interface Turn {
     answer: string;
     phase: TurnPhase;
     tools: ToolStep[];
+    /** Summed model usage for this turn (all ReAct steps). */
+    tokens: TokenUsage;
     /** Clarifying question the model asked instead of acting; reply continues the thread. */
     clarification?: Clarification;
     /** Thinking detail lines visible (auto-on while working, auto-off when done). */

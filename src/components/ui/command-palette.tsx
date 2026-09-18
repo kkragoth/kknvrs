@@ -1,6 +1,6 @@
 /* @jsxImportSource @opentui/react */
 import { useKeyboard } from "@opentui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useTheme } from "@/hooks/use-theme";
 
@@ -19,6 +19,10 @@ export interface CommandPaletteProps {
     onClose?: () => void;
     placeholder?: string;
     maxItems?: number;
+}
+
+function haystack(c: Command): string {
+    return `${c.label} ${c.description ?? ""}`;
 }
 
 function fuzzyMatch(str: string, query: string): boolean {
@@ -57,44 +61,62 @@ function fuzzyScore(str: string, query: string): number {
     return score;
 }
 
-/** termcn OpenTUI command-palette: fuzzy-search popup (↑↓ navigate,
- * Enter selects, Esc closes). */
+/** Fullscreen session/command picker: fuzzy-search overlay (up/down navigate,
+ * enter selects, esc closes). Single text node per row + ASCII-only markers
+ * so wide-char measurement never splits a row. */
 export const CommandPalette = ({
     commands,
     isOpen,
     onClose,
-    placeholder = "Type a command...",
-    maxItems = 8,
+    placeholder = "Type to filter...",
+    maxItems = 30,
 }: CommandPaletteProps) => {
     const theme = useTheme();
     const [query, setQuery] = useState("");
     const [cursor, setCursor] = useState(0);
 
+    useEffect(() => {
+        if (isOpen) {
+            setQuery("");
+            setCursor(0);
+        }
+    }, [isOpen]);
+
     const filtered = commands
-        .filter((c) => fuzzyMatch(c.label, query))
-        .toSorted((a, b) => fuzzyScore(a.label, query) - fuzzyScore(b.label, query))
+        .filter((c) => fuzzyMatch(haystack(c), query))
+        .toSorted((a, b) => fuzzyScore(haystack(a), query) - fuzzyScore(haystack(b), query))
         .slice(0, maxItems);
+
+    const safeCursor = filtered.length === 0 ? 0 : Math.min(cursor, filtered.length - 1);
 
     useKeyboard((key) => {
         if (!isOpen) {
             return;
         }
         if (key.name === "escape") {
+            key.preventDefault?.();
+            key.stopPropagation?.();
             setQuery("");
             setCursor(0);
             onClose?.();
             return;
         }
         if (key.name === "up") {
-            setCursor((c) => Math.max(0, c - 1));
+            key.preventDefault?.();
+            key.stopPropagation?.();
+            setCursor((c) => Math.max(0, Math.min(c, Math.max(filtered.length - 1, 0)) - 1));
             return;
         }
         if (key.name === "down") {
-            setCursor((c) => Math.min(filtered.length - 1, c + 1));
+            key.preventDefault?.();
+            key.stopPropagation?.();
+            setCursor((c) => Math.min(Math.max(c, 0) + 1, Math.max(filtered.length - 1, 0)));
             return;
         }
-        if (key.name === "return") {
-            const cmd = filtered[cursor];
+        if (key.name === "return" || key.name === "kpenter") {
+            key.preventDefault?.();
+            key.stopPropagation?.();
+            const cmd = filtered[safeCursor];
             if (cmd) {
                 cmd.onSelect?.();
                 setQuery("");
@@ -104,18 +126,33 @@ export const CommandPalette = ({
             return;
         }
         if (key.name === "backspace" || key.name === "delete") {
+            key.preventDefault?.();
+            key.stopPropagation?.();
             setQuery((q) => q.slice(0, -1));
             setCursor(0);
             return;
         }
         if (key.name === "tab") {
+            key.preventDefault?.();
+            key.stopPropagation?.();
             return;
         }
-        if (!key.name || key.name.length > 1) {
+        // Ignore control chords so e.g. ctrl+t never lands in the filter.
+        if (key.ctrl || key.meta || key.super || key.hyper) {
             return;
         }
-        setQuery((q) => q + key.name);
-        setCursor(0);
+        // Printable input arrives as sequence ("a", "A", " ", ...).
+        // key.name is "space" for spaces and lowercases letters, so prefer sequence.
+        const seq = key.sequence ?? "";
+        if (seq.length === 1) {
+            const code = seq.charCodeAt(0);
+            if (code >= 32 && code !== 127) {
+                key.preventDefault?.();
+                key.stopPropagation?.();
+                setQuery((q) => q + seq);
+                setCursor(0);
+            }
+        }
     });
 
     if (!isOpen) {
@@ -134,56 +171,59 @@ export const CommandPalette = ({
     let flatIdx = -1;
 
     return (
-        <box
-            flexDirection="column"
-            borderStyle="rounded"
-            borderColor={theme.colors.focusRing}
-            paddingLeft={1}
-            paddingRight={1}
-        >
-            <box borderStyle="single" borderColor={theme.colors.border} paddingLeft={1} paddingRight={1}>
-                <text fg={theme.colors.mutedForeground}>{"⌘ "}</text>
-                <text fg={query ? theme.colors.foreground : theme.colors.mutedForeground}>{query || placeholder}</text>
-                <text fg={theme.colors.focusRing}>█</text>
-            </box>
-
-            {filtered.length === 0 ? (
-                <box paddingLeft={1} paddingRight={1} paddingTop={0} paddingBottom={0}>
-                    <text fg="#666">No commands found</text>
+        <box position="absolute" top={0} left={0} width="100%" height="100%" zIndex={10} backgroundColor="#0a0a0a">
+            <box
+                flexDirection="column"
+                width="100%"
+                height="100%"
+                border
+                borderStyle="rounded"
+                borderColor={theme.colors.focusRing}
+                paddingLeft={1}
+                paddingRight={1}
+            >
+                <box border paddingLeft={1} paddingRight={1}>
+                    <text fg={query ? theme.colors.foreground : theme.colors.mutedForeground}>
+                        {query ? `Search: ${query}_` : placeholder}
+                    </text>
                 </box>
-            ) : (
-                <box flexDirection="column">
-                    {[...groups.entries()].map(([group, cmds]) => (
-                        <box key={group ?? "_"} flexDirection="column">
-                            {group && (
-                                <box paddingLeft={1} paddingRight={1}>
-                                    <text fg="#666">
-                                        <b>{group}</b>
-                                    </text>
-                                </box>
-                            )}
-                            {cmds.map((cmd) => {
-                                flatIdx += 1;
-                                const idx = flatIdx;
-                                const isCursor = idx === cursor;
-                                return (
-                                    <box key={cmd.id} paddingLeft={1} paddingRight={1}>
-                                        <box flexGrow={1}>
-                                            <text fg={isCursor ? "cyan" : theme.colors.foreground}>
-                                                {isCursor ? `› ${cmd.label}` : `  ${cmd.label}`}
-                                            </text>
-                                            {cmd.description && <text fg="#666">{` — ${cmd.description}`}</text>}
+
+                {filtered.length === 0 ? (
+                    <box paddingLeft={1} paddingRight={1}>
+                        <text fg="#666">No matches</text>
+                    </box>
+                ) : (
+                    <scrollbox flexGrow={1} stickyScroll={false} style={{ paddingLeft: 1, paddingRight: 1 }}>
+                        <box flexDirection="column">
+                            {[...groups.entries()].map(([group, cmds]) => (
+                                <box key={group ?? "_"} flexDirection="column">
+                                    {group && (
+                                        <box paddingTop={1}>
+                                            <text fg="#666">{`-- ${group} --`}</text>
                                         </box>
-                                        {cmd.shortcut && <text fg={theme.colors.accent}>{cmd.shortcut}</text>}
-                                    </box>
-                                );
-                            })}
+                                    )}
+                                    {cmds.map((cmd) => {
+                                        flatIdx += 1;
+                                        const idx = flatIdx;
+                                        const isCursor = idx === safeCursor;
+                                        const marker = isCursor ? "> " : "  ";
+                                        const shortcut = cmd.shortcut ? ` [${cmd.shortcut}]` : "";
+                                        return (
+                                            <box key={cmd.id} flexDirection="row">
+                                                <text fg={isCursor ? "cyan" : theme.colors.foreground}>
+                                                    {`${marker}${cmd.label}${cmd.description ? ` -- ${cmd.description}` : ""}${shortcut}`}
+                                                </text>
+                                            </box>
+                                        );
+                                    })}
+                                </box>
+                            ))}
                         </box>
-                    ))}
-                </box>
-            )}
+                    </scrollbox>
+                )}
 
-            <text fg="#666">↑↓: navigate · Enter: run · Esc: close</text>
+                <text fg="#666">up/down: navigate | enter: run | esc: close</text>
+            </box>
         </box>
     );
 };

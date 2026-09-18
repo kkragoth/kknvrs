@@ -28,7 +28,7 @@ export interface OllamaToolDef {
 export type OllamaStreamEvent =
     | { type: "token"; content: string }
     | { type: "tool_calls"; calls: OllamaToolCall[] }
-    | { type: "done"; totalDurationNs?: number };
+    | { type: "done"; totalDurationNs?: number; promptTokens?: number; completionTokens?: number };
 
 export async function ollamaHealth(baseUrl: string, timeoutMs = 4000): Promise<boolean> {
     const ctrl = new AbortController();
@@ -54,6 +54,8 @@ interface StreamLine {
     };
     done?: boolean;
     total_duration?: number;
+    prompt_eval_count?: number;
+    eval_count?: number;
     error?: string;
 }
 
@@ -137,7 +139,12 @@ export async function* streamOllamaChat(params: {
                     if (pendingCalls.length > 0) {
                         yield { type: "tool_calls", calls: pendingCalls.splice(0) };
                     }
-                    yield { type: "done", totalDurationNs: json.total_duration };
+                    yield {
+                        type: "done",
+                        totalDurationNs: json.total_duration,
+                        promptTokens: json.prompt_eval_count,
+                        completionTokens: json.eval_count,
+                    };
                     return;
                 }
             }

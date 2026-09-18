@@ -47,7 +47,7 @@ export function SessionPalette() {
         },
         ...threads.map((t) => ({
             id: `thread-${t.thread_id}`,
-            label: `${t.thread_id === currentThreadId ? "● " : ""}#${t.thread_id.slice(-6)} ${t.title} (${t.message_count} msgs)`,
+            label: `${t.thread_id === currentThreadId ? "* " : ""}#${t.thread_id.slice(-6)} ${t.title} (${t.message_count} msgs)`,
             description:
                 t.thread_id === currentThreadId ? "current" : t.updated_at ? `updated ${t.updated_at}` : undefined,
             group: "Sessions",
@@ -60,8 +60,8 @@ export function SessionPalette() {
             isOpen={open}
             onClose={() => setOpen(false)}
             commands={commands}
-            placeholder="Search sessions…"
-            maxItems={10}
+            placeholder="Search sessions..."
+            maxItems={50}
         />
     );
 }

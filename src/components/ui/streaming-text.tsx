@@ -108,7 +108,11 @@ export const StreamingText = ({
     const resolvedCursorColor = cursorColor ?? theme.colors.primary;
 
     return (
-        <text selectable={selectable}>
+        <text
+            selectable={selectable}
+            selectionBg={theme.colors.selection}
+            selectionFg={theme.colors.selectionForeground}
+        >
             {displayText}
             {showCursor && <text fg={resolvedCursorColor}>▌</text>}
         </text>
